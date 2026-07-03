@@ -64,6 +64,17 @@ chrome.tabs.onRemoved.addListener(async (tabId) => {
   }
 });
 
+// Keep the armed tab's "allowed URL" in sync as it navigates — including
+// same-document SPA navigations (history.pushState/hash changes), which
+// don't re-run content scripts and would otherwise leave the in-page
+// blocker comparing against a stale URL until the user manually retoggled.
+chrome.tabs.onUpdated.addListener(async (tabId, changeInfo) => {
+  if (!changeInfo.url) return;
+  const armed = await getArmedSet();
+  if (!armed.has(tabId)) return;
+  await broadcastState(tabId);
+});
+
 // A tab is only treated as a popup candidate if it starts with a concrete
 // destination URL already (real popups/target=_blank links have this).
 // Blank/new-tab-page tabs are never tracked here — Chrome sets openerTabId
