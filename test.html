@@ -1,0 +1,12 @@
+<!DOCTYPE html>
+<html>
+<head><title>Tab Guard Test Page</title></head>
+<body>
+  <h1>Tab Guard Test</h1>
+  <p><a href="https://example.com" target="_blank">Open example.com (different URL — should be closed when armed)</a></p>
+  <p><a id="samelink" href="#" target="_blank">Open same URL as this tab (should stay open when armed)</a></p>
+  <script>
+    document.getElementById('samelink').href = location.href;
+  </script>
+</body>
+</html>
