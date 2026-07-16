@@ -1,0 +1,1 @@
+**Superseded (OI-055 Phase 1, 2026-07-13):** this file was a partial extraction (1 of 4 Emil Kowalski sub-rules). The full, consolidated set now lives at `.agentflow/flags/ui_taste.md` — read that file instead of this one.

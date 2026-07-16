@@ -1,0 +1,15 @@
+{
+  "audio-notification": {
+    "PreToolUse": [
+      {
+        "matcher": "ask_question|ask_permission",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "./scripts/audio-notify.sh"
+          }
+        ]
+      }
+    ]
+  }
+}
