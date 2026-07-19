@@ -3,7 +3,7 @@
   "name": "Tab Guard",
   "version": "1.0",
   "description": "Closes any tab opened from an armed tab unless its URL exactly matches the armed tab's URL.",
-  "permissions": ["tabs", "storage"],
+  "permissions": ["tabs", "storage", "declarativeNetRequest"],
   "background": {
     "service_worker": "background.js"
   },

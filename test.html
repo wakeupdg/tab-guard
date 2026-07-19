@@ -1,12 +1,89 @@
 <!DOCTYPE html>
 <html>
-<head><title>Tab Guard Test Page</title></head>
+<head>
+  <title>Tab Guard Test Page</title>
+  <!-- Base href set for Test 5 (relative URL resolution) -->
+  <base href="https://different-origin.com/">
+</head>
 <body>
   <h1>Tab Guard Test</h1>
-  <p><a href="https://example.com" target="_blank">Open example.com (different URL — should be closed when armed)</a></p>
-  <p><a id="samelink" href="#" target="_blank">Open same URL as this tab (should stay open when armed)</a></p>
+
+  <!-- Original test cases -->
+  <section>
+    <h2>Original Tests</h2>
+    <p><a href="https://example.com" target="_blank">Open example.com (different URL — should be closed when armed)</a></p>
+    <p><a id="samelink" href="#" target="_blank">Open same URL as this tab (should stay open when armed)</a></p>
+  </section>
+
+  <!-- Test 1: window.open() with a valid mismatched URL is blocked -->
+  <section>
+    <h2>Test 1: window.open() with mismatched URL</h2>
+    <p><button onclick="window.open('https://mismatched-url.com')">window.open('https://mismatched-url.com') — should be blocked when armed</button></p>
+  </section>
+
+  <!-- Test 2: window.open() with no argument (blank tab) that's then navigated to mismatched URL gets closed -->
+  <section>
+    <h2>Test 2: window.open() blank, then navigate to mismatched URL</h2>
+    <p><button onclick="testBlankOpenThenNavigate()">window.open() with no args, then navigate to mismatched URL — should close when armed</button></p>
+  </section>
+
+  <!-- Test 3: Form with target=_blank and mismatched action, blocked via user click AND JS-invoked submit() -->
+  <section>
+    <h2>Test 3: Form with target=_blank and mismatched action</h2>
+    <p>
+      <form id="testForm1" action="https://mismatched-form-action.com" target="_blank">
+        <input type="text" name="test" placeholder="test field">
+        <button type="submit">Form submit via user click — should be blocked when armed</button>
+      </form>
+    </p>
+    <p><button onclick="document.getElementById('testForm1').submit()">Form submit via JS .submit() — should be blocked when armed</button></p>
+  </section>
+
+  <!-- Test 4: Button with formaction/formtarget override is correctly evaluated against button's formaction, not form's action -->
+  <section>
+    <h2>Test 4: Button formaction/formtarget override</h2>
+    <p>
+      <form id="testForm2" action="https://form-action-same-origin.com" target="_self">
+        <input type="text" name="test" placeholder="test field">
+        <button type="submit">Normal submit (form's action, target=_self) — should stay open</button>
+        <button type="submit" formaction="https://button-override-action.com" formtarget="_blank">Button override formaction + formtarget — should be blocked when armed</button>
+      </form>
+    </p>
+  </section>
+
+  <!-- Test 5: Page with base href has relative URLs resolved against document.baseURI (not location.href) and blocked/allowed accordingly -->
+  <section>
+    <h2>Test 5: Relative URLs with base href</h2>
+    <p><em>This section has &lt;base href="https://different-origin.com/"&gt; set in document head.</em></p>
+
+    <p><a href="relative-page" target="_blank">Relative link (resolves to https://different-origin.com/relative-page) — should be blocked when armed</a></p>
+
+    <p><button onclick="windowOpenRelative()">window.open('relative-page') with base href — should be blocked when armed</button></p>
+
+    <p>
+      <form id="testForm3" action="relative-form-action" target="_blank">
+        <input type="text" name="test" placeholder="test field">
+        <button type="submit">Form with relative action (resolves against base) — should be blocked when armed</button>
+      </form>
+    </p>
+  </section>
+
   <script>
+    // Original setup: set samelink to current page URL
     document.getElementById('samelink').href = location.href;
+
+    // Test 2: window.open blank, then navigate via w.location.href to mismatched URL
+    function testBlankOpenThenNavigate() {
+      const w = window.open();
+      if (w) {
+        w.location.href = 'https://mismatched-url-after-open.com';
+      }
+    }
+
+    // Test 5: window.open with relative URL (will be resolved against base href)
+    function windowOpenRelative() {
+      window.open('relative-page');
+    }
   </script>
 </body>
 </html>

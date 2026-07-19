@@ -1,1 +1,8 @@
-failed to connect to the docker API at unix:///Users/dganesh/.docker/run/docker.sock; check if the path is correct and if the daemon is running: dial unix /Users/dganesh/.docker/run/docker.sock: connect: no such file or directory
+============================= test session starts ==============================
+platform linux -- Python 3.12.13, pytest-9.1.1, pluggy-1.6.0
+rootdir: /app
+plugins: logfire-4.37.0, langsmith-0.10.6, typeguard-4.5.2, asyncio-1.4.0, anyio-4.14.2
+asyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collected 0 items
+
+============================ no tests ran in 0.03s =============================

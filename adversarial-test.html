@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Tab Guard Adversarial Test</title>
+</head>
+<body>
+  <h1>Tab Guard Adversarial Test</h1>
+  <p><strong>Setup:</strong> Arm this tab in Tab Guard before running these tests. These scenarios test indirect/adversarial methods to bypass the JS-layer enforcement, plus special cases for data: and blob: URL handling.</p>
+
+  <!-- Scenario 1: Clickjacking Overlays -->
+  <section>
+    <h2>Scenario 1: Clickjacking Overlays</h2>
+    <p>Full-screen transparent/near-transparent fixed-position overlay that attempts window.open() on user interaction.</p>
+    <button onclick="createClickjackingOverlay()">Create full-screen transparent overlay (click triggers window.open to mismatched URL)</button>
+  </section>
+
+  <!-- Scenario 2: Timer-based Popups -->
+  <section>
+    <h2>Scenario 2: Timer-based Popups</h2>
+    <p>window.open() triggered via setTimeout, not tied to direct user interaction.</p>
+    <button onclick="scheduleTimerPopup()">Schedule window.open() via setTimeout (3s delay) to mismatched URL</button>
+    <p id="timerStatus"></p>
+  </section>
+
+  <!-- Scenario 3: mouseleave-triggered Popups -->
+  <section>
+    <h2>Scenario 3: mouseleave-triggered Popups</h2>
+    <p>window.open() triggered when mouse leaves page boundary.</p>
+    <div id="mouseleaveSection" style="border: 2px solid #cc0000; padding: 15px; background: #ffe0e0; margin: 10px 0;">
+      Move your mouse out of this red box to trigger window.open() to mismatched URL
+    </div>
+  </section>
+
+  <!-- Scenario 4: Tab-under Hijack -->
+  <section>
+    <h2>Scenario 4: Tab-under Hijack</h2>
+    <p>Opens a decoy tab (same URL as current page) then redirects the original/armed tab to an evil URL via window.location.replace().</p>
+    <p><em><strong>Implementation note:</strong> This is caught by Location.prototype.replace hook in main-world-blocker.js, gated on same-ORIGIN check (blocks cross-origin page-script navigation). The hook catches origin mismatches without restricting legitimate user navigation (address bar, real link clicks).</em></p>
+    <p><em>Also defended against: meta[http-equiv=refresh] tags are stripped while armed by content-bridge.js (declarative navigation mechanism).</em></p>
+    <button onclick="attemptTabUnderHijack()">Attempt tab-under hijack (open decoy + redirect armed tab to evil URL via location.replace)</button>
+  </section>
+
+  <!-- Scenario 5: about:blank + document.write() Injection -->
+  <section>
+    <h2>Scenario 5: about:blank + document.write() Injection</h2>
+    <p>Opens a blank window and injects attacker-controlled HTML via document.write().</p>
+    <p><strong>Expected behavior:</strong> Window should remain OPEN (not closed), per the "Null Origin (Allowed)" exemption for benign document.write patterns like Print Invoice.</p>
+    <button onclick="attemptDocumentWriteInjection()">Open blank window and inject HTML via document.write()</button>
+  </section>
+
+  <!-- Scenario 6: full-screen iframe overlays -->
+  <section>
+    <h2>Scenario 6: Full-screen iframe Overlays</h2>
+    <p>Creates a full-screen iframe overlay pointing to a mismatched URL. Note: iframe (sub_frame) blocking is NOT covered by DNR per the plan (to avoid breaking Stripe/YouTube/reCAPTCHA).</p>
+    <button onclick="createIframeOverlay()">Create full-screen iframe overlay (mismatched URL)</button>
+    <div id="iframeContainer"></div>
+  </section>
+
+  <!-- Scenario 7: data: URL Navigation on Tracked Child -->
+  <section>
+    <h2>Scenario 7: Tracked Child navigating to data: URL</h2>
+    <p>Opens a child window, then navigates it to a data:text/html,... URL. Should be CLOSED (treated as mismatched origin per existing mismatch logic).</p>
+    <button onclick="testDataUrlNavigation()">Open child, then navigate to data: URL — should be CLOSED</button>
+  </section>
+
+  <!-- Scenario 8: blob: URL Navigation on Tracked Child -->
+  <section>
+    <h2>Scenario 8: Tracked Child navigating to blob: URL</h2>
+    <p>Opens a child window, then navigates it to a blob: URL generated from a Blob object. Should NOT be CLOSED (blob: URLs are exempt per OI-003 exemption).</p>
+    <button onclick="testBlobUrlNavigation()">Open child, then navigate to blob: URL — should stay OPEN</button>
+  </section>
+
+  <script>
+    // Scenario 1: Clickjacking Overlays
+    function createClickjackingOverlay() {
+      const overlay = document.createElement('div');
+      overlay.id = 'clickjackOverlay';
+      overlay.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.05);
+        cursor: pointer;
+        z-index: 9999;
+      `;
+      overlay.onclick = function(e) {
+        window.open('https://mismatched-clickjack-url.com');
+        e.preventDefault();
+        e.stopPropagation();
+      };
+      document.body.appendChild(overlay);
+      const statusText = document.createElement('div');
+      statusText.style.cssText = 'position: fixed; top: 10px; left: 10px; background: white; padding: 10px; z-index: 10000; border: 1px solid black;';
+      statusText.textContent = 'Overlay active — click to trigger window.open()';
+      document.body.appendChild(statusText);
+      setTimeout(() => {
+        overlay.remove();
+        statusText.remove();
+      }, 10000);
+    }
+
+    // Scenario 2: Timer-based Popups
+    function scheduleTimerPopup() {
+      const statusEl = document.getElementById('timerStatus');
+      statusEl.textContent = 'Timer scheduled... window.open() will fire in 3 seconds';
+      setTimeout(() => {
+        window.open('https://mismatched-timer-url.com');
+        statusEl.textContent = 'window.open() called via setTimeout (check if new tab was blocked)';
+      }, 3000);
+    }
+
+    // Scenario 3: mouseleave-triggered Popups
+    document.getElementById('mouseleaveSection').addEventListener('mouseleave', function() {
+      window.open('https://mismatched-mouseleave-url.com');
+    });
+
+    // Scenario 4: Tab-under Hijack
+    function attemptTabUnderHijack() {
+      const confirmed = confirm('This will open a decoy tab and redirect the current tab to an evil URL. Proceed?');
+      if (confirmed) {
+        // Open decoy tab with same URL as current page
+        window.open(location.href);
+        // Immediately redirect this (armed) tab to evil URL via location.replace()
+        // The Location.prototype.replace hook should catch the origin mismatch and block this
+        window.location.replace('https://evil-tab-under.com');
+      }
+    }
+
+    // Scenario 5: about:blank + document.write() Injection
+    function attemptDocumentWriteInjection() {
+      const w = window.open();
+      if (w) {
+        try {
+          w.document.write(`
+            <html>
+              <head><title>Injected Content</title></head>
+              <body>
+                <h1>Injected via document.write()</h1>
+                <p>This window was opened at about:blank and content was injected via document.write().</p>
+                <p>Per Tab Guard's "Null Origin (Allowed)" exemption, this window should remain OPEN.</p>
+              </body>
+            </html>
+          `);
+          w.document.close();
+        } catch (e) {
+          console.error('document.write injection failed:', e);
+        }
+      }
+    }
+
+    // Scenario 6: full-screen iframe overlays
+    function createIframeOverlay() {
+      const container = document.getElementById('iframeContainer');
+      if (container.querySelector('iframe')) {
+        container.innerHTML = '';
+        return; // Toggle off
+      }
+      const iframe = document.createElement('iframe');
+      iframe.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        border: none;
+        z-index: 9999;
+      `;
+      iframe.src = 'https://mismatched-iframe-url.com';
+      iframe.title = 'Full-screen iframe overlay';
+      container.appendChild(iframe);
+    }
+
+    // Scenario 7: data: URL Navigation on Tracked Child
+    function testDataUrlNavigation() {
+      const child = window.open('about:blank');
+      if (child) {
+        setTimeout(() => {
+          const dataUrl = 'data:text/html,<html><body><h1>Data URL injected content</h1><p>This should be CLOSED by Tab Guard.</p></body></html>';
+          try {
+            child.location.href = dataUrl;
+          } catch (e) {
+            console.error('data: URL navigation failed:', e);
+          }
+        }, 500);
+      }
+    }
+
+    // Scenario 8: blob: URL Navigation on Tracked Child
+    function testBlobUrlNavigation() {
+      const child = window.open('about:blank');
+      if (child) {
+        setTimeout(() => {
+          try {
+            const html = '<html><body><h1>Blob URL injected content</h1><p>This should stay OPEN per blob: URL exemption.</p></body></html>';
+            const blob = new Blob([html], { type: 'text/html' });
+            const blobUrl = URL.createObjectURL(blob);
+            child.location.href = blobUrl;
+          } catch (e) {
+            console.error('blob: URL navigation failed:', e);
+          }
+        }, 500);
+      }
+    }
+  </script>
+</body>
+</html>
